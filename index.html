@@ -105,6 +105,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 
 .cat-row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding-block: 24px; border-top: 2px solid var(--ink); }
 .cat-row:last-child { border-bottom: 2px solid var(--ink); }
+#memes .cat-row { border-top: none; }
+.meme-tile { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; background: var(--hero-bg); color: var(--white); font-weight: 900; font-size: clamp(18px, 2vw, 24px); line-height: 1.3; letter-spacing: -0.5px; text-wrap: balance; word-break: keep-all; }
+.tag-new { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--orange); color: var(--white); font-size: 11px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.5; vertical-align: 2px; }
+.meme-sub { margin: 0; font-size: 12px; color: var(--gray); }
 .cat-name { display: flex; flex-direction: column; gap: 6px; }
 .cat-name h3 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
 .cat-name span { font-size: 12px; color: var(--gray); }
@@ -249,6 +253,7 @@ footer a { color: var(--neon-glow); text-decoration: underline; text-underline-o
       <span class="meta" id="latestMeta"></span>
     </div>
     <div id="latest"><div class="state">뉴스레터를 불러오는 중입니다…</div></div>
+    <div id="memes"></div>
   </section>
 
   <section class="sec" id="yt-sec" aria-labelledby="ytTitle">
@@ -286,6 +291,7 @@ const CATS = [
   { id: "ai", name: "AI 기술" },
 ];
 const CATNAME = Object.fromEntries(CATS.map((c) => [c.id, c.name]));
+CATNAME.meme = "밈(MEME)";
 // 오늘의 뉴스레터는 두 묶음으로 합쳐 보여 준다
 const GROUPS = [
   { id: "game", name: "국내/해외 게임", cats: ["domestic", "global"] },
@@ -505,19 +511,69 @@ function render() {
   $("past").replaceChildren(...CATS.map((c) => {
     const rows = [];
     for (const iss of older) for (const it of iss.items || []) if (it.cat === c.id) rows.push({ it, label: iss.label });
-    const kids = rows.slice(0, RECENT).map((r) => row(r.it, r.label));
-    const rest = rows.slice(RECENT);
-    if (rest.length) {
-      kids.push(el("details", { class: "more" },
-        el("summary", {}, el("span", { text: "더보기 " + rest.length + "건" })),
-        el("ul", { class: "heads" }, ...rest.map((r) =>
-          el("li", {}, el("span", { class: "date tnum", text: shortDate(r.label) }), link(r.it.url, r.it.title))))));
-    }
-    if (!rows.length) kids.push(el("p", { class: "date", text: "지난 기사가 아직 없습니다." }));
-    return el("section", { class: "box", "aria-label": c.name + " 지난 기사" },
-      el("header", {}, el("h3", { text: c.name }), el("span", { text: "지난 " + rows.length + "건" })), ...kids);
+    return pastBox(c.name, rows, "지난 기사가 아직 없습니다.");
   }));
+  renderPastMemes();
   search();
+}
+// 지난 뉴스레터 상자: 최근 5건(날짜·헤드라인·POINT) + 나머지 더보기
+function pastBox(name, rows, emptyText) {
+  const kids = rows.slice(0, RECENT).map((r) => row(r.it, r.label));
+  const rest = rows.slice(RECENT);
+  if (rest.length) {
+    kids.push(el("details", { class: "more" },
+      el("summary", {}, el("span", { text: "더보기 " + rest.length + "건" })),
+      el("ul", { class: "heads" }, ...rest.map((r) =>
+        el("li", {}, el("span", { class: "date tnum", text: shortDate(r.label) }), link(r.it.url, r.it.title))))));
+  }
+  if (!rows.length) kids.push(el("p", { class: "date", text: emptyText }));
+  return el("section", { class: "box", "aria-label": name + " 지난 기사" },
+    el("header", {}, el("h3", { text: name }), el("span", { text: "지난 " + rows.length + "건" })), ...kids);
+}
+
+// ── 밈(MEME): db memes/state {current[최근 추가 10], past[밀려난 밈]} — 새 밈은 나무위키 시기별 문서로 확인, 링크·썸네일은 유튜브→기사 순, 설명은 새로 쓴 한 줄
+let memes = null;
+function memeLabel(d) { const m = /^\d\d(\d\d)-(\d\d)-(\d\d)/.exec(d || ""); return m ? m[1] + "/" + m[2] + "/" + m[3] : ""; }
+// 링크는 유튜브 영상 → 뉴스 기사 → 나무위키 순으로 찾은 것(link), 썸네일은 db memes/thumbs {keys[], images[]}
+let memeThumbs = null;
+const LINK_LABEL = { youtube: "YouTube", news: "기사", namu: "나무위키" };
+function memeLink(m) { return m.link || m.url; }
+function memeItem(m) { return { title: m.name, url: memeLink(m), insight: m.desc, cat: "meme" }; }
+function memeImg(m) {
+  const f = m.thumbFile;
+  return /^memethumbs\/[\w.\-\/]+\.jpg$/.test(f || "") ? f + "?v=" + encodeURIComponent(memes?.updated || "") : null;
+}
+function memeCard(m) {
+  const u = safeUrl(memeLink(m));
+  const src = memeImg(m);
+  const inner = src ? el("img", { src, alt: "", loading: "lazy" }) : el("span", { class: "meme-tile", text: m.name });
+  const via = [LINK_LABEL[m.linkType] || "나무위키", m.linkSource].filter(Boolean).join(" · ");
+  return el("article", { class: "card" },
+    u ? el("a", { class: "thumb", href: u, target: "_blank", rel: "noopener noreferrer", "aria-hidden": "true", tabindex: "-1" }, inner) : el("div", { class: "thumb" }, inner),
+    el("h4", {}, m.isNew ? el("span", { class: "tag-new", text: "NEW" }) : null, link(memeLink(m), m.name)),
+    m.desc ? el("p", { class: "sum", text: m.desc }) : null,
+    m.sub ? el("p", { class: "meme-sub", text: "관련: " + m.sub }) : null,
+    el("span", { class: "date tnum", text: via + " · " + shortDate(memeLabel(m.addedAt)) + " 추가" }));
+}
+function renderMemes() {
+  const box = $("memes");
+  if (!memes || !Array.isArray(memes.current) || !memes.current.length) { box.replaceChildren(); return; }
+  const s = swipeRail("memes", memes.current, (m) => memeCard(m), "밈(MEME)", "건");
+  box.replaceChildren(el("div", { class: "cat-row" },
+    el("div", { class: "cat-name" }, el("h3", { text: "밈(MEME)" }),
+      el("span", { text: "최근 추가 " + memes.current.length + "건" }),
+      s.ctrl),
+    s.rail));
+  renderPastMemes();
+}
+function renderPastMemes() {
+  const old = document.getElementById("pastMemesBox");
+  if (old) old.remove();
+  if (!memes || !$("past").children.length) return;
+  const rows = (memes.past || []).map((m) => ({ it: memeItem(m), label: memeLabel(m.movedAt || m.addedAt) }));
+  const b = pastBox("밈(MEME)", rows, "지난 밈이 아직 없습니다. 새 밈이 들어오면 밀려난 밈이 여기로 옮겨집니다.");
+  b.id = "pastMemesBox";
+  $("past").append(b);
 }
 
 function search() {
@@ -530,6 +586,10 @@ function search() {
   for (const iss of issues) for (const it of iss.items || []) {
     const hay = [it.title, it.summary, it.insight, it.source].join(" ").toLowerCase();
     if (hay.includes(q)) hits.push({ it, label: iss.label });
+  }
+  if (memes) for (const m of [...(memes.current || []), ...(memes.past || [])]) {
+    const hay = [m.name, m.desc, m.sub].join(" ").toLowerCase();
+    if (hay.includes(q)) hits.push({ it: memeItem(m), label: memeLabel(m.addedAt) });
   }
   box.replaceChildren(el("section", { class: "sec" },
     el("div", { class: "sec-head" }, el("h2", {}, el("em", { text: "‘" + raw + "’" }), " 검색 결과"), el("span", { class: "meta", text: hits.length + "건" })),
@@ -664,6 +724,15 @@ document.querySelectorAll(".yt-tabs button").forEach((btn) => btn.addEventListen
   } catch (e) {
     $("yt").replaceChildren(el("div", { class: "state", text: "유튜브 급상승 데이터를 불러오지 못했습니다. 잠시 후 새로고침해 주세요." }));
   }
+})();
+// 밈(MEME): data/memes.json (current 10 + past)
+(async () => {
+  try {
+    const res = await fetch("data/memes.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status);
+    memes = await res.json();
+  } catch (e) { memes = null; }
+  renderMemes();
 })();
 </script>
 
