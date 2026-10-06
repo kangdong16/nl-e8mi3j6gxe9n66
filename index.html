@@ -598,14 +598,21 @@ function swipeRail(key, items, renderItem, name, unit) {
     prev.disabled = p <= 0; next.disabled = p >= pages.length - 1;
     prev.style.opacity = prev.disabled ? .35 : 1; next.style.opacity = next.disabled ? .35 : 1;
   };
-  const goto = (p) => rail.scrollTo({ left: p * rail.clientWidth, behavior: reduceMotion ? "auto" : "smooth" });
+  const goto = (p) => {
+    p = Math.max(0, Math.min(p, pages.length - 1));
+    const left = p * rail.clientWidth;
+    rail.scrollTo({ left, behavior: reduceMotion ? "auto" : "smooth" });
+    // 부드러운 스크롤이 동작하지 않는 환경(일부 브라우저·백그라운드 탭)에서는 바로 이동
+    setTimeout(() => { if (Math.abs(rail.scrollLeft - left) > 2) rail.scrollLeft = left; update(); }, 450);
+  };
   prev.addEventListener("click", () => goto(cur() - 1));
   next.addEventListener("click", () => goto(cur() + 1));
-  rail.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  rail.addEventListener("scroll", update, { passive: true });
   rail.addEventListener("keydown", (e) => {
     if (e.key === "ArrowLeft") { e.preventDefault(); goto(cur() - 1); }
     if (e.key === "ArrowRight") { e.preventDefault(); goto(cur() + 1); }
   });
+  update();
   requestAnimationFrame(() => { const p = railPage[key] || 0; if (p) rail.scrollLeft = p * rail.clientWidth; update(); });
   const ctrl = pages.length > 1 ? el("div", { class: "ctrl" }, prev, label, next) : null;
   return { rail, ctrl };
