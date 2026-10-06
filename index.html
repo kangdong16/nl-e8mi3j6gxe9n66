@@ -548,12 +548,20 @@ let memes = null;
 function memeLabel(d) { const m = /^\d\d(\d\d)-(\d\d)-(\d\d)/.exec(d || ""); return m ? m[1] + "/" + m[2] + "/" + m[3] : ""; }
 // 링크는 유튜브 영상 → 뉴스 기사 → 나무위키 순으로 찾은 것(link), 썸네일은 db memes/thumbs {keys[], images[]}
 let memeThumbs = null;
-const LINK_LABEL = { youtube: "YouTube", news: "기사", namu: "나무위키" };
+const LINK_LABEL = { youtube: "YouTube", x: "X", instagram: "Instagram", tiktok: "TikTok", news: "기사", namu: "나무위키" };
 function memeLink(m) { return m.link || m.url; }
 function memeItem(m) { return { title: m.name, url: memeLink(m), insight: m.desc, cat: "meme" }; }
 function memeImg(m) {
   const f = m.thumbFile;
   return /^memethumbs\/[\w.\-\/]+\.jpg$/.test(f || "") ? f + "?v=" + encodeURIComponent(memes?.updated || "") : null;
+}
+// NEW: 갱신 시점(memes.updated) 기준 7일 이내 날짜의 밈만. 날짜가 없으면 예전 방식(isNew)으로
+function memeIsNew(m) {
+  const ref = Date.parse((memes && memes.updated) || "");
+  const d = Date.parse(m.date ? m.date + "T00:00:00+09:00" : "");
+  if (isNaN(ref) || isNaN(d)) return !!m.isNew;
+  const refDay = Date.parse(new Date(ref + 9 * 3600e3).toISOString().slice(0, 10) + "T00:00:00+09:00");
+  return refDay - d <= 7 * 86400e3 && d <= ref;
 }
 function memeCard(m) {
   const u = safeUrl(memeLink(m));
@@ -562,10 +570,10 @@ function memeCard(m) {
   const via = [LINK_LABEL[m.linkType] || "나무위키", m.linkSource].filter(Boolean).join(" · ");
   return el("article", { class: "card" },
     u ? el("a", { class: "thumb", href: u, target: "_blank", rel: "noopener noreferrer", "aria-hidden": "true", tabindex: "-1" }, inner) : el("div", { class: "thumb" }, inner),
-    el("h4", {}, m.isNew ? el("span", { class: "tag-new", text: "NEW" }) : null, link(memeLink(m), m.name)),
+    el("h4", {}, memeIsNew(m) ? el("span", { class: "tag-new", text: "NEW" }) : null, link(memeLink(m), m.name)),
     m.desc ? el("p", { class: "sum", text: m.desc }) : null,
     m.sub ? el("p", { class: "meme-sub", text: "관련: " + m.sub }) : null,
-    el("span", { class: "date tnum", text: via + " · " + shortDate(memeLabel(m.addedAt)) + " 추가" }));
+    el("span", { class: "date tnum", text: via + " · " + (m.date ? shortDate(memeLabel(m.date)) : shortDate(memeLabel(m.addedAt)) + " 추가") }));
 }
 function renderMemes() {
   const box = $("memes");
