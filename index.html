@@ -594,7 +594,8 @@ function swipeRail(key, items, renderItem, name, unit) {
   const update = () => {
     const p = Math.max(0, Math.min(cur(), pages.length - 1));
     railPage[key] = p;
-    label.textContent = (p * 3 + 1) + "–" + Math.min(p * 3 + 3, items.length) + " / " + items.length;
+    const a = p * 3 + 1, z = Math.min(p * 3 + 3, items.length);
+    label.textContent = (a === z ? a : a + "–" + z) + " / " + items.length;
     prev.disabled = p <= 0; next.disabled = p >= pages.length - 1;
     prev.style.opacity = prev.disabled ? .35 : 1; next.style.opacity = next.disabled ? .35 : 1;
   };
