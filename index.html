@@ -558,11 +558,11 @@ function memeImg(m) {
   const f = m.thumbFile;
   return /^memethumbs\/[\w.\-\/]+\.jpg$/.test(f || "") ? f + "?v=" + encodeURIComponent(memes?.updated || "") : null;
 }
-// NEW: 갱신 시점(memes.updated) 기준 7일 이내 날짜의 밈만. 날짜가 없으면 예전 방식(isNew)으로
+// NEW: 보는 날(한국 시간 오늘) 기준 7일 이내 날짜의 밈만. 날짜가 없으면 예전 방식(isNew)으로
 function memeIsNew(m) {
-  const ref = Date.parse((memes && memes.updated) || "");
+  const ref = Date.now();
   const d = Date.parse(m.date ? m.date + "T00:00:00+09:00" : "");
-  if (isNaN(ref) || isNaN(d)) return !!m.isNew;
+  if (isNaN(d)) return !!m.isNew;
   const refDay = Date.parse(new Date(ref + 9 * 3600e3).toISOString().slice(0, 10) + "T00:00:00+09:00");
   return refDay - d <= 7 * 86400e3 && d <= ref;
 }
