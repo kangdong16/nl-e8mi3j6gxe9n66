@@ -111,6 +111,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 #memes .cat-row { border-top: none; }
 .meme-tile { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; background: var(--hero-bg); color: var(--white); font-weight: 900; font-size: clamp(18px, 2vw, 24px); line-height: 1.3; letter-spacing: -0.5px; text-wrap: balance; word-break: keep-all; }
 .tag-new { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--orange); color: var(--white); font-size: 11px; font-weight: 900; letter-spacing: 0.5px; line-height: 1.5; vertical-align: 2px; }
+.tag-new.tag-revive { background: #9B4DFF; letter-spacing: 0; }
 .yh-tabs { display: flex; gap: 6px; padding-block: 2px 10px; }
 .yh-tabs button { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--white); color: var(--ink); cursor: pointer; }
 .yh-tabs button[aria-selected="true"] { background: var(--ink); color: var(--neon-glow); }
@@ -560,6 +561,7 @@ function memeImg(m) {
 }
 // NEW: 보는 날(한국 시간 오늘) 기준 7일 이내 날짜의 밈만. 날짜가 없으면 예전 방식(isNew)으로
 function memeIsNew(m) {
+  if (m.revived) return false;
   const ref = Date.now();
   const d = Date.parse(m.date ? m.date + "T00:00:00+09:00" : "");
   if (isNaN(d)) return !!m.isNew;
@@ -573,10 +575,10 @@ function memeCard(m) {
   const via = [LINK_LABEL[m.linkType] || "나무위키", m.linkSource].filter(Boolean).join(" · ");
   return el("article", { class: "card" },
     u ? el("a", { class: "thumb", href: u, target: "_blank", rel: "noopener noreferrer", "aria-hidden": "true", tabindex: "-1" }, inner) : el("div", { class: "thumb" }, inner),
-    el("h4", {}, memeIsNew(m) ? el("span", { class: "tag-new", text: "NEW" }) : null, link(memeLink(m), m.name)),
+    el("h4", {}, m.revived ? el("span", { class: "tag-new tag-revive", text: "재유행" }) : memeIsNew(m) ? el("span", { class: "tag-new", text: "NEW" }) : null, link(memeLink(m), m.name)),
     m.desc ? el("p", { class: "sum", text: m.desc }) : null,
     m.sub ? el("p", { class: "meme-sub", text: "관련: " + m.sub }) : null,
-    el("span", { class: "date tnum", text: via + " · " + (m.date ? shortDate(memeLabel(m.date)) : shortDate(memeLabel(m.addedAt)) + " 추가") }));
+    el("span", { class: "date tnum", text: via + " · " + (m.revived && m.respreadDate ? shortDate(memeLabel(m.respreadDate)) : m.date ? shortDate(memeLabel(m.date)) : shortDate(memeLabel(m.addedAt)) + " 추가") }));
 }
 function renderMemes() {
   const box = $("memes");
