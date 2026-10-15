@@ -7,6 +7,14 @@
 <meta name="googlebot" content="noindex,nofollow,noarchive,noimageindex,nosnippet">
 <meta name="referrer" content="no-referrer">
 <title>데일리 마케팅 뉴스레터 아카이브</title>
+<!-- Google Analytics 4 (2026-10-15) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CH9204BYY2"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag("js", new Date());
+gtag("config", "G-CH9204BYY2");
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
@@ -806,6 +814,56 @@ document.querySelectorAll(".yt-tabs button").forEach((btn) => btn.addEventListen
     ytHist = await res.json();
   } catch (e) { ytHist = null; }
   renderPastMemes();
+})();
+</script>
+
+<script>
+// ── GA4 이벤트 (2026-10-15): 기사·밈·영상 클릭(content_click), 검색(search), 더보기 열기(more_open), 지역 탭(tab_select)
+(function () {
+  if (typeof gtag !== "function") return;
+  const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n || 100);
+  const AREAS = [[".hero", "hero"], ["#memes", "meme"], ["#latest", "latest"], ["#yt", "youtube"],
+    ["#pastMemesBox", "past_meme"], ["#pastYtBox", "past_youtube"], ["#past", "past_article"], ["#results", "search_result"]];
+  const areaOf = (n) => { for (const [sel, name] of AREAS) if (n.closest(sel)) return name; return "other"; };
+  const groupOf = (n) => {
+    const slide = n.closest(".slide");
+    if (slide) return cut(slide.querySelector(".kicker")?.textContent);
+    const box = n.closest(".cat-row") || n.closest("section.box");
+    return cut(box?.querySelector("h3")?.textContent);
+  };
+  const titleOf = (a) => {
+    const slide = a.closest(".slide");
+    if (slide) return cut(slide.querySelector("h1")?.getAttribute("aria-label"));
+    const card = a.closest("article");
+    if (card) return cut(card.querySelector("h4, h3")?.textContent);
+    return cut(a.getAttribute("title") || a.textContent);
+  };
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (!a || !/^https?:/i.test(a.href) || a.host === location.host) return;
+    gtag("event", "content_click", { area: areaOf(a), group: groupOf(a), item_title: titleOf(a), link_url: cut(a.href, 300) });
+  }, true);
+  let t = null, last = "";
+  const q = document.getElementById("q");
+  if (q) q.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const term = cut(q.value, 100);
+      if (term.length < 2 || term === last) return;
+      last = term;
+      gtag("event", "search", { search_term: term });
+    }, 1500);
+  });
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!d.matches || !d.matches("details.more") || !d.open) return;
+    gtag("event", "more_open", { area: areaOf(d), group: groupOf(d) });
+  }, true);
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".yt-tabs button, .yh-tabs button");
+    if (!b) return;
+    gtag("event", "tab_select", { area: b.closest(".yh-tabs") ? "past_youtube" : "youtube", group: cut(b.textContent) });
+  }, true);
 })();
 </script>
 
